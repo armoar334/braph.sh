@@ -1,0 +1,184 @@
+#!/usr/bin/env bash
+
+# put a number in args to color ur line
+if [[ -z "$1" ]];
+then
+	color=7
+else
+	color="$1"
+fi
+
+# This is where you put your function
+# For beginning position see the for statement at the bottom
+# If you are doing ANY decimal point math, especially with bc, append "sed 's/^\./0\./g' | cut -d '.' -f1" to tun it into an integer
+# This example function covers most of the extra stuff you might have to do to get useful numbers, but you can do whatever you want as long
+# as you assign y to an integer
+declare_y() {
+	if [[ $x -lt 0 ]];
+	then
+		y=$(echo "sqrt("$(( 0 - $(( x * 4 )) ))")" | bc -l | sed 's/^\./0\./g' | cut -d '.' -f1)
+		#y=$(( 0 - y ))
+	else
+		y=$(echo "sqrt("$(( x * 4 ))")" | bc -l | sed 's/^\./0\./g' | cut -d '.' -f1)
+		y=$(( 0 - y))
+	fi
+}
+
+
+term_size() {
+	read -r lines columns < <(stty size)
+}
+
+axes() {
+	x1=$(( columns / 2 ))
+	y1=$(( lines / 2 ))
+	printf "\e[1;"$x1"H"
+	for i in $(seq 1 $y1)
+	do
+		printf "\u28B8\n\e["$(( x1 - 1 ))"C"
+	done
+	printf '\r%-*s' "$(( x1 - 1 ))" | sed "s/ /$(printf '\u2809')/g"
+	printf '\u28B9'
+	printf '%-*s' "$(( columns - x1 ))" | sed "s/ /$(printf '\u2809')/g"
+	printf "\r\e["$(( x1 - 1 ))"C\e[B"
+	for i in $(seq 1 $(( y1 - 1 )) )
+	do
+		printf "\u28B8\r\e[B\e["$(( x1 - 1 ))"C"
+	done
+}
+
+calculate_braille() {
+	# 1 4
+	# 2 5
+	# 3 6
+	# 7 8
+	# This is dumb but god does it make it easier by conforming to a standard
+	positions="$1"
+	unicode=00000000
+	# Unicode address can be anywhere from 0 - 255 in binary (its just easier), will be converted to hex when displayed
+	if [[ "$positions" == *"1"* ]]; then unicode="1${unicode:1}" ; fi
+	if [[ "$positions" == *"2"* ]]; then unicode="${unicode:0:1}1${unicode:2}" ; fi
+	if [[ "$positions" == *"3"* ]]; then unicode="${unicode:0:2}1${unicode:3}" ; fi
+	if [[ "$positions" == *"4"* ]]; then unicode="${unicode:0:3}1${unicode:4}" ; fi
+	if [[ "$positions" == *"5"* ]]; then unicode="${unicode:0:4}1${unicode:5}" ; fi
+	if [[ "$positions" == *"6"* ]]; then unicode="${unicode:0:5}1${unicode:6}" ; fi
+	if [[ "$positions" == *"7"* ]]; then unicode="${unicode:0:6}1${unicode:7}" ; fi
+	if [[ "$positions" == *"8"* ]]; then unicode="${unicode:0:7}1${unicode:8}" ; fi
+	unicode=$(echo "$unicode" | rev) # Must be reversed as it is computed backwards
+	unicode=$(printf '%02x' "$((2#$unicode))")
+	printf "\u28$unicode"
+}
+
+calculate_position() {
+	# Get braille dot position this is calculated by modulus of the x position by 2
+	# and y by 4, so it works like normal co-ordinates, just with 0 instead of the highest
+	x="$1"
+	y="$2"
+	if [[ "$x" == "1" ]];
+	then
+		case "$y" in
+			1) printf "7" ;;
+			2) printf "3" ;;
+			3) printf "2" ;;
+			0) printf "1" ;;
+		esac
+	else
+		case "$y" in
+			1) printf "8" ;;
+			2) printf "6" ;;
+			3) printf "5" ;;
+			0) printf "4" ;;
+		esac
+	fi
+	# Add extra dots so that axes are not interuppted
+	if [[ $xpos == 0 ]];
+	then
+		printf '4568'
+	fi
+	if [[ $ypos == 0 ]];
+	then
+		printf '14'
+	fi
+
+
+}
+
+term_size
+#if [[ "$lines" -lt 24 ]]; then echo "Terminal must be at least 24 lines tall"; exit; fi
+#if [[ "$columns" -lt 80 ]]; then echo "Terminal must be at least 80 columns wide"; exit; fi
+axes
+
+# First number is x starting point
+for x in $(seq "-$(( $((x1 * 2 )) - 1 ))" $(( x1 * 2 )) )
+do
+	declare_y
+
+	oldypos="$ypos"
+	oldxpos="$xpos"
+
+	# Temp
+	brailley="$(( y % 4 ))"
+	braillex="$(( x % 2 ))"
+
+	if [[ $y -lt 0 ]]; # Invert if negative
+	then
+		brailley=$(( brailley + 4 ))
+		if [[ $brailley -eq 4 ]]; then brailley=0; fi
+	fi
+
+	if [[ $x -lt 0 ]]; # Invert if negative
+	then
+		braillex=$(( braillex + 1 ))
+		if [[ $braillex -eq 1 ]];
+		then
+			braillex=0
+		else
+			braillex=1
+		fi
+	fi
+
+	# Position relative to graph 0,0
+
+	if [[ $y -lt 0 ]]; # THE WORK I DO to accomodate a bitchass negative number
+	then
+		ypos="$(( y / 4 ))" # Bash's rounding down is helpful here, so we keep it :)
+	else
+		ypos="$(( 1 + $(( $(( y - 1 )) / 4 )) ))"
+	fi
+	if [[ $y == 0 ]];
+	then
+		ypos=0 # Because of bash
+	fi
+
+	if [[ $x -lt 0 ]];
+	then
+		xpos="$(( x / 2 ))"
+	else
+		xpos="$(( 1 + $(( $(( x - 1 )) / 2 )) ))" # Have to add one for cursor movement reasons
+	fi
+	if [[ $x == 0 ]];
+	then
+		xpos=1
+	fi
+
+
+	same="True"
+	if [[ "$oldypos" != "$ypos" ]] || [[ "$oldxpos" != "$xpos" ]];
+	then
+		braille_code=''
+		same="False"
+	fi
+
+	printf "\e["$(( y1 - ypos + 1 ))";"$(( x1 + xpos ))"H"
+
+	printf '\e[3'$color'm'
+	braille_code="$braille_code$(calculate_position $braillex $brailley)"
+	calculate_braille "$braille_code"
+	printf '\e[0m'
+
+	printf "\e[$lines;1H"
+	printf "X:$x  \r\e[AY:$y  "
+
+#	read -rsn1
+done
+printf '\e[H'
