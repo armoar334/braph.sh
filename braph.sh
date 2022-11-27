@@ -52,18 +52,16 @@ calculate_braille() {
 	# 7 8
 	# This is dumb but god does it make it easier by conforming to a standard
 	positions="$1"
-	unicode=00000000
-	# Unicode address can be anywhere from 0 - 255 in binary (its just easier), will be converted to hex when displayed
-	if [[ "$positions" == *"1"* ]]; then unicode="1${unicode:1}" ; fi
-	if [[ "$positions" == *"2"* ]]; then unicode="${unicode:0:1}1${unicode:2}" ; fi
-	if [[ "$positions" == *"3"* ]]; then unicode="${unicode:0:2}1${unicode:3}" ; fi
-	if [[ "$positions" == *"4"* ]]; then unicode="${unicode:0:3}1${unicode:4}" ; fi
-	if [[ "$positions" == *"5"* ]]; then unicode="${unicode:0:4}1${unicode:5}" ; fi
-	if [[ "$positions" == *"6"* ]]; then unicode="${unicode:0:5}1${unicode:6}" ; fi
-	if [[ "$positions" == *"7"* ]]; then unicode="${unicode:0:6}1${unicode:7}" ; fi
-	if [[ "$positions" == *"8"* ]]; then unicode="${unicode:0:7}1${unicode:8}" ; fi
-	unicode=$(echo "$unicode" | rev) # Must be reversed as it is computed backwards
-	unicode=$(printf '%02x' "$((2#$unicode))")
+	unicode=0
+	if [[ "$positions" == *"1"* ]]; then ((unicode+=1)) ; fi
+	if [[ "$positions" == *"2"* ]]; then ((unicode+=2)) ; fi
+	if [[ "$positions" == *"3"* ]]; then ((unicode+=4)) ; fi
+	if [[ "$positions" == *"4"* ]]; then ((unicode+=8)) ; fi
+	if [[ "$positions" == *"5"* ]]; then ((unicode+=16)) ; fi
+	if [[ "$positions" == *"6"* ]]; then ((unicode+=32)) ; fi
+	if [[ "$positions" == *"7"* ]]; then ((unicode+=64)) ; fi
+	if [[ "$positions" == *"8"* ]]; then ((unicode+=128)) ; fi
+	unicode=$(printf '%02x' "$unicode")
 	printf "\u28$unicode"
 }
 
