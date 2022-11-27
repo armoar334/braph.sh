@@ -12,4 +12,4 @@ as it does not clear the screen itself it can be used to draw multiple functions
 funny (and becasue i wanted to see if i could)  
 
 # It runs really slowly
-yeah, i can be bothered to write a way for it do calculations in hex properly, so it just string manipulates a binary number ATM. its not good but its functional enough as a POC  
+Yea i mean its bash so
