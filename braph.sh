@@ -8,22 +8,20 @@ else
 	color="$1"
 fi
 
-# This is where you put your function
-# For beginning position see the for statement at the bottom
-# If you are doing ANY decimal point math, especially with bc, append "sed 's/^\./0\./g' | cut -d '.' -f1" to tun it into an integer
-# This example function covers most of the extra stuff you might have to do to get useful numbers, but you can do whatever you want as long
-# as you assign y to an integer
-declare_y() {
-	if [[ $x -lt 0 ]];
-	then
-		y=$(echo "sqrt("$(( 0 - $(( x * 4 )) ))")" | bc -l | sed 's/^\./0\./g' | cut -d '.' -f1)
-		#y=$(( 0 - y ))
-	else
-		y=$(echo "sqrt("$(( x * 4 ))")" | bc -l | sed 's/^\./0\./g' | cut -d '.' -f1)
-		y=$(( 0 - y))
-	fi
-}
+if ! [[ $(type -t declare_y) == function ]];
+then
+	declare_y() {
+		if [[ $x -lt 0 ]];
+		then
+			y=$(( 0 - x ))
+		else
+			y=$x
+		fi
 
+		y=$(bc -l <<<"sqrt("$(( y * 4 ))")")
+		if [[ $x -lt 0 ]]; then y=$(bc -l <<<" 0 - $y"); fi
+	}
+fi
 
 term_size() {
 	read -r lines columns < <(stty size)
@@ -31,7 +29,7 @@ term_size() {
 
 axes() {
 	x1=$(( columns / 2 ))
-	y1=$(( lines / 2 ))
+	y1=$(( $(( lines / 2 )) - 10 ))
 	printf "\e[1;"$x1"H"
 	for i in $(seq 1 $y1)
 	do
@@ -109,9 +107,10 @@ term_size
 axes
 
 # First number is x starting point
-for x in $(seq "-$(( $((x1 * 2 )) - 1 ))" $(( x1 * 2 )) )
+for x in $(seq "-$(( x1 * 2 ))" $(( x1 * 2 )) )
 do
 	declare_y
+	y=$(echo "$y" | cut -d '.' -f1 ) # Cut of everything b4 decimal point
 
 	oldypos="$ypos"
 	oldxpos="$xpos"
@@ -176,9 +175,10 @@ do
 	calculate_braille "$braille_code"
 	printf '\e[0m'
 
-	printf "\e[$lines;1H"
-	printf "X:$x  \r\e[AY:$y  "
-
-#	read -rsn1
 done
-printf '\e[H'
+printf '\e['$(( y1 * 2 ))'H'
+for i in $(seq $(( y1 * 2 )) $(( lines - 2 )) )
+do
+	printf '\e[2K\n'
+done
+printf '\e['$(( y1 * 2 ))'H'
